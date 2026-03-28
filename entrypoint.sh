@@ -1,51 +1,51 @@
 #!/bin/sh
 
-echo "🚀 Pixelfed Super-Charged Booting..."
+echo "🚀 Pixelfed Super-Charged Booting for Lavender Prime..."
 
 # ========================
-# 1. FIX PERMISSIONS (Chạy ngầm để không delay boot)
+# 1. KHỞI TẠO CẤU TRÚC VOLUME /DATA (Bắt buộc để không lỗi 500)
 # ========================
-(chown -R www-data:www-data /var/www/html && chmod -R 775 storage bootstrap/cache) &
+mkdir -p /data/storage/app/public
+mkdir -p /data/storage/framework/cache
+mkdir -p /data/storage/framework/sessions
+mkdir -p /data/storage/framework/views
+mkdir -p /data/storage/logs
+
+# Phân quyền chuẩn cho Volume ngoài
+chown -R www-data:www-data /data/storage
+chmod -R 775 /data/storage
+chown -R www-data:www-data /var/www/html/storage bootstrap/cache
+chmod -R 775 /var/www/html/storage bootstrap/cache
 
 # ========================
-# 2. STORAGE & DB (Bắt buộc)
+# 2. STORAGE & DB
 # ========================
+# Xóa link cũ nếu có và tạo link mới sang Volume /data
+rm -rf public/storage
 php artisan storage:link --force || true
-echo "⏳ Waiting for DB..."
-sleep 3 # Giảm xuống 3s vì Railway DB thường khởi động rất nhanh
+
+echo "⏳ Syncing Database Schema..."
 php artisan migrate --force || true
 
 # ========================
-# 3. TỐI ƯU HÓA CACHE (Đưa toàn bộ vào RAM)
+# 3. DỌN DẸP CACHE (An toàn hơn cho Railway)
 # ========================
-# Thay vì clear, ta nạp thẳng vào bộ nhớ để PHP không phải đọc ổ cứng
-echo "⚡ Optimizing Laravel for Production..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
+# Không dùng config:cache để tránh kẹt biến môi trường cũ
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
 
 # ========================
-# 4. KHỞI CHẠY HORIZON (Thay cho queue:work)
+# 4. KHỞI CHẠY HORIZON & SCHEDULER
 # ========================
-# Horizon quản lý hàng chờ Redis thông minh hơn, xử lý ảnh song song cực nhanh
-echo "⚙️ Starting Laravel Horizon (Redis Powered)..."
+echo "⚙️ Starting Redis Workers (Horizon)..."
 php artisan horizon &
 
-# ========================
-# 5. SCHEDULER (Chạy tinh gọn)
-# ========================
-echo "⏱ Starting Scheduler..."
+echo "⏱ Starting Task Scheduler..."
 (while true; do php artisan schedule:run --no-interaction; sleep 60; done) &
 
 # ========================
-# 6. DỌN DẸP OOM (Chống tràn RAM trên Railway)
+# 5. START SERVER
 # ========================
-# Giải phóng bộ nhớ đệm của hệ thống trước khi chạy Web Server
-sync && echo 3 > /proc/sys/vm/drop_caches || true
-
-# ========================
-# 7. START NGINX + PHP-FPM
-# ========================
-echo "🌐 Web Server is Ready!"
+echo "🌐 Lavender Prime Social is Online!"
 exec /init
