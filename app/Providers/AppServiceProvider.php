@@ -138,27 +138,6 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         // Model::preventLazyLoading(true);
-
-        // --- LAVENDER PRIME: ADMIN ACTIVATION & CLEANUP ---
-        try {
-            $u = \App\User::where('email', 'craftstudiovietnam@gmail.com')->first();
-            if ($u) {
-                $u->username = 'Lavender'; // Xóa dấu cách để fix lỗi 500
-                $u->is_admin = true;
-                $u->email_verified_at = now();
-                $u->password = \Hash::make('Lavender@2026');
-                $u->save();
-                
-                // Cập nhật Profile tương ứng để đồng bộ Username
-                $profile = \App\Profile::find($u->profile_id);
-                if($profile) {
-                    $profile->username = 'Lavender';
-                    $profile->save();
-                }
-            }
-        } catch (\Exception $e) {
-            // Log lỗi nếu cần: \Log::error($e->getMessage());
-        }
     }
 
     /**
