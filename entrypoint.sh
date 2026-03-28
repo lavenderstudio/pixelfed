@@ -1,55 +1,51 @@
 #!/bin/sh
 
-echo "🚀 Pixelfed booting..."
+echo "🚀 Pixelfed Super-Charged Booting..."
 
 # ========================
-# FIX PERMISSION
+# 1. FIX PERMISSIONS (Chạy ngầm để không delay boot)
 # ========================
-chown -R www-data:www-data /var/www/html || true
-chmod -R 775 storage bootstrap/cache || true
+(chown -R www-data:www-data /var/www/html && chmod -R 775 storage bootstrap/cache) &
 
 # ========================
-# LARAVEL CLEAN
+# 2. STORAGE & DB (Bắt buộc)
 # ========================
-php artisan config:clear || true
-php artisan cache:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
-
-# ========================
-# STORAGE LINK (FIX 404 AVATAR)
-# ========================
-php artisan storage:link || true
-
-# ========================
-# WAIT DB (QUAN TRỌNG)
-# ========================
+php artisan storage:link --force || true
 echo "⏳ Waiting for DB..."
-sleep 5
-
-# ========================
-# MIGRATE (KHÔNG FAIL DEPLOY)
-# ========================
+sleep 3 # Giảm xuống 3s vì Railway DB thường khởi động rất nhanh
 php artisan migrate --force || true
 
 # ========================
-# QUEUE (FIX HOMEPAGE 500)
+# 3. TỐI ƯU HÓA CACHE (Đưa toàn bộ vào RAM)
 # ========================
-echo "⚙️ Starting queue..."
-php artisan queue:work redis --sleep=3 --tries=3 --timeout=90 > /dev/stdout 2>&1 &
+# Thay vì clear, ta nạp thẳng vào bộ nhớ để PHP không phải đọc ổ cứng
+echo "⚡ Optimizing Laravel for Production..."
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
 
 # ========================
-# SCHEDULER (OPTIONAL)
+# 4. KHỞI CHẠY HORIZON (Thay cho queue:work)
 # ========================
-echo "⏱ Starting scheduler..."
-while true
-do
-  php artisan schedule:run --no-interaction &
-  sleep 60
-done &
+# Horizon quản lý hàng chờ Redis thông minh hơn, xử lý ảnh song song cực nhanh
+echo "⚙️ Starting Laravel Horizon (Redis Powered)..."
+php artisan horizon &
 
 # ========================
-# START NGINX + PHP-FPM
+# 5. SCHEDULER (Chạy tinh gọn)
 # ========================
-echo "🌐 Starting web server..."
+echo "⏱ Starting Scheduler..."
+(while true; do php artisan schedule:run --no-interaction; sleep 60; done) &
+
+# ========================
+# 6. DỌN DẸP OOM (Chống tràn RAM trên Railway)
+# ========================
+# Giải phóng bộ nhớ đệm của hệ thống trước khi chạy Web Server
+sync && echo 3 > /proc/sys/vm/drop_caches || true
+
+# ========================
+# 7. START NGINX + PHP-FPM
+# ========================
+echo "🌐 Web Server is Ready!"
 exec /init
