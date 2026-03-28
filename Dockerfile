@@ -48,6 +48,9 @@ RUN chown -R www-data:www-data /var/www/html \
 # Install composer dependencies
 RUN composer install --no-ansi --no-interaction --optimize-autoloader
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Switch back to www-data user
 USER www-data
 
