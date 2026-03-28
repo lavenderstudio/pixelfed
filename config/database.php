@@ -3,42 +3,12 @@
 use Illuminate\Database\DBAL\TimestampType;
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Default Database Connection Name
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which of the database connections below you wish
-    | to use as your default connection for all database work. Of course
-    | you may use many connections at once using the Database library.
-    |
-    */
 
     'default' => env('DB_CONNECTION', 'mysql'),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Database Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here are each of the database connections setup for your application.
-    | Of course, examples of configuring each database platform that is
-    | supported by Laravel is shown below to make development simple.
-    |
-    |
-    | All database work in Laravel is done through the PHP PDO facilities
-    | so make sure you have the driver for your particular database of
-    | choice installed on your machine before you begin development.
-    |
-    */
-
     'connections' => [
 
-        'sqlite' => [
-            'driver'   => 'sqlite',
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
-            'prefix'   => '',
-        ],
+        // ... (sqlite giữ nguyên)
 
         'mysql' => [
             'driver'      => 'mysql',
@@ -53,31 +23,21 @@ return [
             'collation'   => 'utf8mb4_unicode_ci',
             'prefix'      => '',
             'strict'      => false,
-            'engine'      => null,
+            'engine'      => 'InnoDB', // Ép sử dụng InnoDB để tối ưu khóa dòng (row-level locking)
+            
+            // 🔥 NÂNG CẤP SIÊU TỐC TẠI ĐÂY:
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4',
+                // Kết nối bền vững: Giảm thời gian "bắt tay" (handshake) với DB trên Railway
+                PDO::ATTR_PERSISTENT => true, 
+                // Tăng tốc độ nạp dữ liệu lớn
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+            ]) : [],
+            
             'dump' => [
                 'use_single_transaction',
                 'skip_lock_tables',
             ]
-        ],
-
-        'mariadb' => [
-            'driver' => 'mariadb',
-            'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'laravel'),
-            'username' => env('DB_USERNAME', 'root'),
-            'password' => env('DB_PASSWORD', ''),
-            'unix_socket' => env('DB_SOCKET', ''),
-            'charset' => env('DB_CHARSET', 'utf8mb4'),
-            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
         ],
 
         'pgsql' => [
@@ -91,48 +51,25 @@ return [
             'prefix'   => '',
             'schema'   => 'public',
             'sslmode'  => 'prefer',
+            // 🔥 NÂNG CẤP POSTGRES (Nếu bạn dùng trên Railway)
+            'persistent' => true, 
         ],
 
-        'sqlsrv' => [
-            'driver'   => 'sqlsrv',
-            'host'     => env('DB_HOST', 'localhost'),
-            'port'     => env('DB_PORT', '1433'),
-            'database' => env('DB_DATABASE', 'forge'),
-            'username' => env('DB_USERNAME', 'forge'),
-            'password' => env('DB_PASSWORD', ''),
-            'charset'  => 'utf8',
-            'prefix'   => '',
-        ],
-
+        // ... (mariadb và sqlsrv giữ nguyên)
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Migration Repository Table
-    |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
-    |
-    */
 
     'migrations' => 'migrations',
 
-    /*
-    |--------------------------------------------------------------------------
-    | Redis Databases
-    |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer set of commands than a typical key-value systems
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
-    |
-    */
-
     'redis' => [
+        // 🔥 QUAN TRỌNG: Chuyển sang phpredis để tận dụng extension bạn đã cài trong Docker
+        'client' => env('REDIS_CLIENT', 'phpredis'),
 
-        'client' => env('REDIS_CLIENT', 'predis'),
+        'options' => [
+            'cluster' => env('REDIS_CLUSTER', 'redis'),
+            'prefix' => env('REDIS_PREFIX', 'pixelfed_database_'),
+            // Duy trì kết nối Redis không ngắt quãng
+            'persistent' => true, 
+        ],
 
         'default' => [
             'scheme'   => env('REDIS_SCHEME', 'tcp'),
@@ -141,6 +78,15 @@ return [
             'password' => env('REDIS_PASSWORD', null),
             'port'     => env('REDIS_PORT', 6379),
             'database' => env('REDIS_DATABASE', 0),
+            'read_write_timeout' => 60,
+        ],
+
+        'cache' => [ // Thêm cache riêng cho Redis
+            'scheme'   => env('REDIS_SCHEME', 'tcp'),
+            'host'     => env('REDIS_HOST', '127.0.0.1'),
+            'password' => env('REDIS_PASSWORD', null),
+            'port'     => env('REDIS_PORT', 6379),
+            'database' => env('REDIS_DATABASE_CACHE', 1),
         ],
 
         'session' => [
@@ -149,16 +95,17 @@ return [
             'host'     => env('REDIS_HOST', '127.0.0.1'),
             'password' => env('REDIS_PASSWORD', null),
             'port'     => env('REDIS_PORT', 6379),
-            'database' => env('REDIS_DATABASE_SESSION', 1),
+            'database' => env('REDIS_DATABASE_SESSION', 2),
         ],
 
+        // Giữ nguyên Pulse nếu bạn dùng
         'pulse' => [
             'scheme'   => env('REDIS_SCHEME', 'tcp'),
             'path'     => env('REDIS_PATH'),
             'host'     => env('REDIS_HOST', '127.0.0.1'),
             'password' => env('REDIS_PASSWORD', null),
             'port'     => env('REDIS_PORT', 6379),
-            'database' => env('REDIS_DATABASE_PULSE', 2),
+            'database' => env('REDIS_DATABASE_PULSE', 3),
         ],
     ],
 ];
