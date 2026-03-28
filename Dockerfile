@@ -5,7 +5,7 @@ WORKDIR /var/www/html
 USER root
 
 # ========================
-# SYSTEM PACKAGES
+# 1. SYSTEM PACKAGES (Tối ưu cho ảnh & video)
 # ========================
 RUN apt-get update && apt-get install -y \
     ffmpeg \
@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ========================
-# PHP EXTENSIONS
+# 2. PHP EXTENSIONS (Bao gồm Redis & Vips siêu tốc)
 # ========================
 RUN install-php-extensions \
     bcmath \
@@ -39,38 +39,39 @@ RUN install-php-extensions \
     ffi
 
 # ========================
-# COPY SOURCE
+# 3. NGINX OPTIMIZATION (🔥 NÂNG CẤP SIÊU TỐC)
 # ========================
-COPY --chown=www-data:www-data . /var/www/html
+# Ghi đè cấu hình Nginx mặc định bằng file nginx.conf bạn vừa tạo
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN chown www-data:www-data /etc/nginx/conf.d/default.conf
 
 # ========================
-# COPY ENTRYPOINT (🔥 QUAN TRỌNG NHẤT)
+# 4. COPY SOURCE & ENTRYPOINT
 # ========================
+COPY --chown=www-data:www-data . /var/www/html
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # ========================
-# COMPOSER
+# 5. COMPOSER & PERMISSIONS
 # ========================
 RUN composer install --no-ansi --no-interaction --optimize-autoloader
 
-# ========================
-# FIX PERMISSION
-# ========================
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
 # ========================
-# RAILWAY VOLUME FIX
+# 6. RAILWAY VOLUME FIX
 # ========================
 RUN mkdir -p /data/storage \
     && chown -R www-data:www-data /data
 
+# Chuyển quyền lại cho www-data để bảo mật và vận hành
 USER www-data
 
 EXPOSE 8080
 
 # ========================
-# START COMMAND (🔥)
+# START COMMAND (Kết hợp Horizon & Web Server)
 # ========================
 CMD ["/entrypoint.sh"]
