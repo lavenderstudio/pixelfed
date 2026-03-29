@@ -1,12 +1,12 @@
 FROM serversideup/php:8.4-fpm-nginx
 
+# Set working directory
 WORKDIR /var/www/html
 
+# Switch to root to install packages
 USER root
 
-# ========================
-# 1. SYSTEM PACKAGES (Tối ưu cho ảnh & video)
-# ========================
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     unzip \
@@ -20,9 +20,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# ========================
-# 2. PHP EXTENSIONS (Bao gồm Redis & Vips siêu tốc)
-# ========================
+# Install PHP extensions using the built-in helper
 RUN install-php-extensions \
     bcmath \
     curl \
@@ -38,40 +36,20 @@ RUN install-php-extensions \
     vips \
     ffi
 
-# ========================
-# 3. NGINX OPTIMIZATION (🔥 NÂNG CẤP SIÊU TỐC)
-# ========================
-# Ghi đè cấu hình Nginx mặc định bằng file nginx.conf bạn vừa tạo
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN chown www-data:www-data /etc/nginx/conf.d/default.conf
-
-# ========================
-# 4. COPY SOURCE & ENTRYPOINT
-# ========================
+# Copy application files
 COPY --chown=www-data:www-data . /var/www/html
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
-# ========================
-# 5. COMPOSER & PERMISSIONS
-# ========================
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && find /var/www/html -type f -exec chmod 644 {} \; \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
+    && chmod -R ug+rwx /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Install composer dependencies
 RUN composer install --no-ansi --no-interaction --optimize-autoloader
 
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
-
-# ========================
-# 6. RAILWAY VOLUME FIX
-# ========================
-RUN mkdir -p /data/storage \
-    && chown -R www-data:www-data /data
-
-# Chuyển quyền lại cho www-data để bảo mật và vận hành
+# Switch back to www-data user
 USER www-data
 
+# Expose port 8080 (default for serversideup/php)
 EXPOSE 8080
-
-# ========================
-# START COMMAND (Kết hợp Horizon & Web Server)
-# ========================
-CMD ["/entrypoint.sh"]
